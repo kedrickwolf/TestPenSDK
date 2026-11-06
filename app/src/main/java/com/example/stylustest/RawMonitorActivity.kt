@@ -118,7 +118,7 @@ class RawMonitorActivity : AppCompatActivity() {
         div1.layoutParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, 2
         )
-        div1.setBackgroundColor(0xFF444444)
+        div1.setBackgroundColor(0xFF444444.toInt())
         root.addView(div1)
 
         // Device selection
@@ -407,7 +407,7 @@ class RawMonitorActivity : AppCompatActivity() {
     }
 
     private fun onChangeAxisClicked() {
-        val items = AbsAxisValues.all.map { it.name }
+        val items: List<CharSequence> = AbsAxisValues.all.map { it.name }
         val currentIndex = AbsAxisValues.all.indexOfFirst { it.code == selectedRollAxisCode }.coerceAtLeast(0)
         val builder = AlertDialog.Builder(this)
         builder.setTitle("Select roll axis")

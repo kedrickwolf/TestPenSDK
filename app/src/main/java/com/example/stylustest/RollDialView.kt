@@ -67,10 +67,10 @@ class RollDialView @JvmOverloads constructor(
         for (i in 0 until 12) {
             val angle = i * 30f
             val rad = Math.toRadians((angle - 90).toDouble())
-            val x1 = cx + (radius - 10f) * cos(rad).toFloat()
-            val y1 = cy + (radius - 10f) * sin(rad).toFloat()
-            val x2 = cx + radius * cos(rad).toFloat()
-            val y2 = cy + radius * sin(rad).toFloat()
+            val x1 = cx + (radius - 10f) * kotlin.math.cos(rad).toFloat()
+            val y1 = cy + (radius - 10f) * kotlin.math.sin(rad).toFloat()
+            val x2 = cx + radius * kotlin.math.cos(rad).toFloat()
+            val y2 = cy + radius * kotlin.math.sin(rad).toFloat()
             canvas.drawLine(x1, y1, x2, y2, tickPaint)
         }
 
