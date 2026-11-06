@@ -2,6 +2,7 @@ package com.example.stylustest
 
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -9,15 +10,48 @@ import android.graphics.Path
 import android.graphics.Typeface
 import android.os.Bundle
 import android.util.Log
+import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
+import android.widget.Button
+import android.widget.FrameLayout
 import kotlin.math.cos
 import kotlin.math.sin
 
 class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(PenView(this))
+
+        val root = FrameLayout(this)
+        root.layoutParams = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT
+        )
+
+        val penView = PenView(this)
+        root.addView(penView, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT
+        ))
+
+        // Button to open the Shizuku-based raw evdev monitor.
+        // The existing MotionEvent path in PenView is untouched.
+        val btn = Button(this)
+        btn.text = "Raw Monitor"
+        btn.setPadding(16, 16, 16, 16)
+        btn.setOnClickListener {
+            startActivity(Intent(this, RawMonitorActivity::class.java))
+        }
+        val params = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.END
+            setMargins(16, 16, 16, 16)
+        }
+        root.addView(btn, params)
+
+        setContentView(root)
     }
 }
 

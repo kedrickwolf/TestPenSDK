@@ -3,6 +3,12 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+dependencies {
+    implementation("androidx.appcompat:appcompat:1.6.1")
+    implementation("dev.rikka.shizuku:api:13.2.0")
+    implementation("dev.rikka.shizuku:provider:13.2.0")
+}
+
 android {
     namespace = "com.example.stylustest"
     compileSdk = 34

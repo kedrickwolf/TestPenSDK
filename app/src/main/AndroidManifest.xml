@@ -11,5 +11,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity
+            android:name=".RawMonitorActivity"
+            android:exported="false" />
+        <provider
+            android:name="dev.rikka.shizuku.provider.ShizukuProvider"
+            android:authorities="${applicationId}.shizuku"
+            android:exported="true" />
     </application>
 </manifest>
