@@ -411,7 +411,7 @@ class RawMonitorActivity : AppCompatActivity() {
         val currentIndex = AbsAxisValues.all.indexOfFirst { it.code == selectedRollAxisCode }.coerceAtLeast(0)
         val builder = AlertDialog.Builder(this)
         builder.setTitle("Select roll axis")
-        builder.setSingleChoiceItems(items.toTypedArray(), currentIndex, null) { _, which ->
+        builder.setSingleChoiceItems(items.toTypedArray(), currentIndex) { _, which ->
             selectedRollAxisCode = AbsAxisValues.all[which].code
             rollAxisLabel.text = "Roll axis: ${AbsAxisValues.all[which].name}"
         }
