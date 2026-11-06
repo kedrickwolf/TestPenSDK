@@ -207,7 +207,7 @@ class RawMonitorActivity : AppCompatActivity() {
                 actionButton.text = "Open Shizuku"
                 actionButton.setOnClickListener {
                     val intent = android.content.Intent("dev.rikka.shizuku.START_ACTIVITY")
-                    intent.package = "dev.rikka.shizuku"
+                    intent.setPackage("dev.rikka.shizuku")
                     if (intent.resolveActivity(packageManager) != null) {
                         startActivity(intent)
                     } else {
@@ -411,7 +411,7 @@ class RawMonitorActivity : AppCompatActivity() {
         val currentIndex = AbsAxisValues.all.indexOfFirst { it.code == selectedRollAxisCode }.coerceAtLeast(0)
         val builder = AlertDialog.Builder(this)
         builder.setTitle("Select roll axis")
-        builder.setSingleChoiceItems(items, currentIndex, null) { _, which ->
+        builder.setSingleChoiceItems(items.toTypedArray(), currentIndex, null) { _, which ->
             selectedRollAxisCode = AbsAxisValues.all[which].code
             rollAxisLabel.text = "Roll axis: ${AbsAxisValues.all[which].name}"
         }
