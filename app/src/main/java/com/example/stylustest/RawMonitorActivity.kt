@@ -71,18 +71,6 @@ class RawMonitorActivity : AppCompatActivity() {
         super.onDestroy()
         reader?.stop()
         reader = null
-        shizuku.unbind()
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == REQUEST_SHIZUKU_PERMISSION) {
-            refreshShizukuState()
-        }
     }
 
     private fun buildUi(): LinearLayout {
@@ -225,10 +213,20 @@ class RawMonitorActivity : AppCompatActivity() {
                     }
                     ShellPermissionState.Denied -> {
                         statusText.text = "Shell permission denied. Requesting..."
-                        shizuku.requestShellPermission(this, REQUEST_SHIZUKU_PERMISSION)
+                        shizuku.requestShellPermission(this, REQUEST_SHIZUKU_PERMISSION) { granted ->
+                            if (granted) {
+                                refreshShizukuState()
+                            } else {
+                                statusText.text = "Shell permission not granted."
+                            }
+                        }
                     }
                     ShellPermissionState.Unknown -> {
-                        shizuku.requestShellPermission(this, REQUEST_SHIZUKU_PERMISSION)
+                        shizuku.requestShellPermission(this, REQUEST_SHIZUKU_PERMISSION) { granted ->
+                            if (granted) {
+                                refreshShizukuState()
+                            }
+                        }
                     }
                 }
             }
@@ -269,14 +267,22 @@ class RawMonitorActivity : AppCompatActivity() {
                         statusText.text = "Shell permission denied."
                         actionButton.text = "Request permission"
                         actionButton.setOnClickListener {
-                            shizuku.requestShellPermission(this, REQUEST_SHIZUKU_PERMISSION)
+                            shizuku.requestShellPermission(this, REQUEST_SHIZUKU_PERMISSION) { granted ->
+                                if (granted) {
+                                    refreshShizukuState()
+                                }
+                            }
                         }
                         deviceSpinner.isEnabled = false
                         startButton.isEnabled = false
                     }
                     ShellPermissionState.Unknown -> {
                         statusText.text = "Checking permission..."
-                        shizuku.requestShellPermission(this, REQUEST_SHIZUKU_PERMISSION)
+                        shizuku.requestShellPermission(this, REQUEST_SHIZUKU_PERMISSION) { granted ->
+                            if (granted) {
+                                refreshShizukuState()
+                            }
+                        }
                     }
                 }
             }

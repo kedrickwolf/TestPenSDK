@@ -2,7 +2,14 @@ package com.example.stylustest
 
 import android.app.Activity
 import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
+import java.io.BufferedReader
+import java.io.InputStreamReader
+import rikka.shizuku.Shizuku
+import rikka.shizuku.ShizukuRemoteProcess
 
 /** Result of checking Shizuku availability. */
 sealed class ShizukuState {
@@ -22,13 +29,10 @@ sealed class ShellPermissionState {
 /**
  * Manages Shizuku binding, shell permission, and running shell commands through Shizuku.
  *
- * NOTE: The Shizuku v13+ API surface (Shizuku.pingBinder, Shizuku.bindAsUser, Shell, etc.)
- * could not be verified against the installed artifact. This stub compiles against the
- * declared Shizuku dependency but does not yet wire actual Shizuku IPC calls.
- *
- * To wire the real API, replace the stub bodies in [state], [checkShellPermission],
- * [requestShellPermission], [bind], and [runCommand] with calls to the Shizuku API
- * classes (e.g. dev.rikka.shizuku.api.Shizuku, dev.rikka.shizuku.api.Shell).
+ * Uses the real Shizuku v13 API:
+ * - [Shizuku.pingBinder] to check if Shizuku is running
+ * - [Shizuku.checkSelfPermission] / [Shizuku.requestPermission] for shell permission
+ * - [Shizuku.newProcess] to run shell commands (e.g. `getevent -l <device>`)
  */
 class ShizukuManager private constructor(private val context: Context) {
 
@@ -43,12 +47,26 @@ class ShizukuManager private constructor(private val context: Context) {
     }
 
     private val logTag = "ShizukuManager"
-    private var bound = false
+    private val mainHandler = Handler(Looper.getMainLooper())
 
-    /** Current Shizuku availability state. Checks for the Shizuku API class at runtime. */
+    /** Callback invoked when the shell permission request completes. */
+    private var permissionCallback: ((Boolean) -> Unit)? = null
+    private var pendingPermissionRequestCode = -1
+
+    /** Current Shizuku availability state. Checks via Shizuku.pingBinder(). */
     fun state(): ShizukuState {
         return if (isShizukuApiClassAvailable()) {
-            ShizukuState.InstalledRunning
+            try {
+                val binder = Shizuku.pingBinder()
+                if (binder != null) {
+                    ShizukuState.InstalledRunning
+                } else {
+                    ShizukuState.InstalledNotRunning
+                }
+            } catch (e: Exception) {
+                Log.w(logTag, "pingBinder failed", e)
+                ShizukuState.Unknown
+            }
         } else {
             ShizukuState.NotInstalled
         }
@@ -56,54 +74,106 @@ class ShizukuManager private constructor(private val context: Context) {
 
     private fun isShizukuApiClassAvailable(): Boolean {
         return try {
-            Class.forName("dev.rikka.shizuku.api.Shizuku")
+            Class.forName("rikka.shizuku.Shizuku")
             true
         } catch (e: ClassNotFoundException) {
             false
         }
     }
 
-    /** Check whether the shell permission is already granted. Stub — returns Denied. */
+    /** Check whether the shell permission is already granted. */
     fun checkShellPermission(): ShellPermissionState {
-        Log.w(logTag, "checkShellPermission not wired to Shizuku API")
-        return ShellPermissionState.Denied
+        if (!isShizukuApiClassAvailable()) return ShellPermissionState.Unknown
+        return when {
+            Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED ->
+                ShellPermissionState.Granted
+            else -> ShellPermissionState.Denied
+        }
     }
 
     /**
-     * Request the shell permission from the user. Stub — no-op.
-     * Wire to Shizuku.requestPermission() once the API is verified.
+     * Request the shell permission from the user. The result is delivered via
+     * [setPermissionCallback] rather than Android's standard onRequestPermissionsResult,
+     * because Shizuku v13 uses its own listener ([Shizuku.OnRequestPermissionResultListener]).
      */
-    fun requestShellPermission(activity: Activity, requestCode: Int) {
-        Log.w(logTag, "requestShellPermission not wired to Shizuku API")
-    }
-
-    /**
-     * Bind to Shizuku's service so we can run shell commands. Stub — always fails.
-     * Wire to Shizuku.bindAsUser() once the API is verified.
-     */
-    fun bind(onBound: (Boolean) -> Unit) {
-        if (bound) {
-            onBound(true)
+    fun requestShellPermission(activity: Activity, requestCode: Int, callback: (Boolean) -> Unit) {
+        if (!isShizukuApiClassAvailable()) {
+            callback(false)
             return
         }
-        Log.w(logTag, "bind not wired to Shizuku API")
-        onBound(false)
+        pendingPermissionRequestCode = requestCode
+        permissionCallback = callback
+
+        Shizuku.addRequestPermissionResultListener(
+            object : Shizuku.OnRequestPermissionResultListener {
+                override fun onRequestPermissionResult(requestCode: Int, grantResult: Int) {
+                    if (requestCode == pendingPermissionRequestCode) {
+                        val granted = grantResult == PackageManager.PERMISSION_GRANTED
+                        permissionCallback?.invoke(granted)
+                        permissionCallback = null
+                        Shizuku.removeRequestPermissionResultListener(this)
+                    }
+                }
+            },
+            mainHandler
+        )
+        Shizuku.requestPermission(requestCode)
+    }
+
+    /**
+     * Bind to Shizuku. In v13 this is a lightweight check — shell access goes through
+     * [Shizuku.newProcess] rather than a bound service connection. Returns true if Shizuku
+     * is running and accessible.
+     */
+    fun bind(onBound: (Boolean) -> Unit) {
+        if (!isShizukuApiClassAvailable()) {
+            onBound(false)
+            return
+        }
+        val binder = Shizuku.pingBinder()
+        if (binder != null) {
+            Log.d(logTag, "Shizuku binder available")
+            onBound(true)
+        } else {
+            Log.w(logTag, "Shizuku binder not available")
+            onBound(false)
+        }
     }
 
     fun unbind() {
-        bound = false
+        // No explicit unbinding needed for shell access via newProcess()
     }
 
-    /** Run a one-shot shell command and return its stdout. Stub — returns null. */
+    /** Run a one-shot shell command and return its stdout. */
     fun runCommand(command: String): String? {
-        Log.w(logTag, "runCommand not wired to Shizuku API: $command")
-        return null
+        if (!isShizukuApiClassAvailable()) {
+            Log.w(logTag, "Shizuku API not available")
+            return null
+        }
+        if (Shizuku.pingBinder() == null) {
+            Log.w(logTag, "Shizuku not running")
+            return null
+        }
+        try {
+            val process: ShizukuRemoteProcess = Shizuku.newProcess(
+                arrayOf("sh", "-c", command),
+                null,
+                null
+            )
+            val reader = BufferedReader(InputStreamReader(process.inputStream))
+            val output = reader.readText()
+            process.waitFor()
+            process.destroy()
+            return output
+        } catch (e: Exception) {
+            Log.w(logTag, "runCommand failed: $command", e)
+            return null
+        }
     }
 
     /**
      * Start an interactive shell session that runs `getevent -l <device>` and streams
      * lines back via [onLine]. Returns the session so the caller can [stop] it.
-     * Stub — logs a warning and does not stream data.
      */
     fun startGetEvent(device: String, onLine: (String) -> Unit): GetEventSession {
         return GetEventSession(device, onLine)
@@ -114,8 +184,13 @@ class ShizukuManager private constructor(private val context: Context) {
         device: String,
         private val onLine: (String) -> Unit
     ) {
+        private var process: ShizukuRemoteProcess? = null
         private var thread: Thread? = null
         private var running = false
+
+        private companion object {
+            val mainHandler = Handler(Looper.getMainLooper())
+        }
 
         init {
             start(device)
@@ -123,17 +198,41 @@ class ShizukuManager private constructor(private val context: Context) {
 
         private fun start(device: String) {
             running = true
-            thread = Thread {
-                Log.w("GetEventSession", "Shizuku shell not wired; no getevent stream for $device")
+            try {
+                process = Shizuku.newProcess(
+                    arrayOf("getevent", device),
+                    null,
+                    null
+                )
+                val inputStream = process?.inputStream
+                if (inputStream == null) {
+                    running = false
+                    return
+                }
+                thread = Thread {
+                    val reader = BufferedReader(InputStreamReader(inputStream))
+                    while (running) {
+                        val line = reader.readLine()
+                        if (line == null) break
+                        if (running) {
+                            mainHandler.post { onLine(line) }
+                        }
+                    }
+                }
+                thread?.isDaemon = true
+                thread?.start()
+            } catch (e: Exception) {
+                Log.w("GetEventSession", "getevent stream failed for $device", e)
+                running = false
             }
-            thread?.isDaemon = true
-            thread?.start()
         }
 
         fun stop() {
             running = false
             thread?.interrupt()
             thread = null
+            process?.destroy()
+            process = null
         }
     }
 }
