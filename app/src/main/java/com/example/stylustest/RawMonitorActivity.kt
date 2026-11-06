@@ -8,15 +8,13 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.View
-import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import android.widget.Spinner
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import dev.rikka.shizuku.api.Shizuku
-import dev.rikka.shizuku.api.ShizukuPermission
 
 /** Request code for Shizuku shell permission. */
 private const val REQUEST_SHIZUKU_PERMISSION = 1001
@@ -308,7 +306,9 @@ class RawMonitorActivity : AppCompatActivity() {
         statusText.text = "Detecting pen devices..."
         // Run on background thread since runCommand blocks.
         Thread {
-            val cmd = "for d in /dev/input/event*; do echo \"== $d\"; cat /sys/class/input/${d#/dev/input/}/name 2>/dev/null; done"
+            // List event devices and read their names via sysfs.
+            // \$d and \$(basename \$d) are escaped so they reach the shell literally.
+            val cmd = "for d in /dev/input/event*; do echo \"== \$d\"; cat /sys/class/input/\$(basename \$d)/name 2>/dev/null; done"
             val output = shizuku.runCommand(cmd)
             val devices = parsePenDevices(output ?: "")
             mainHandler.post {
@@ -407,16 +407,15 @@ class RawMonitorActivity : AppCompatActivity() {
     }
 
     private fun onChangeAxisClicked() {
-        val items = AbsAxisValues.all.map { it.name }.toTypedArray()
+        val items = AbsAxisValues.all.map { it.name }
         val currentIndex = AbsAxisValues.all.indexOfFirst { it.code == selectedRollAxisCode }.coerceAtLeast(0)
-        val dialog = AlertDialog.Builder(this)
-        dialog.setTitle("Select roll axis")
-        dialog.setSingleChoiceItems(items, currentIndex, null) { _, which ->
+        val builder = AlertDialog.Builder(this)
+        builder.setTitle("Select roll axis")
+        builder.setSingleChoiceItems(items, currentIndex, null) { _, which ->
             selectedRollAxisCode = AbsAxisValues.all[which].code
             rollAxisLabel.text = "Roll axis: ${AbsAxisValues.all[which].name}"
-            dialog.dismiss()
         }
-        dialog.show()
+        builder.create().show()
     }
 
     private fun updateAxisView(info: AxisInfo) {

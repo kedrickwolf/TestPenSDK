@@ -54,7 +54,7 @@ class RollDialView @JvmOverloads constructor(
         val h = height.toFloat()
         val cx = w / 2f
         val cy = h / 2f
-        val radius = (coerceAtMost(w, h) / 2f - 16f)
+        val radius = (w.coerceAtMost(h) / 2f - 16f)
 
         // Dial circle
         canvas.drawCircle(cx, cy, radius, dialPaint)
@@ -77,8 +77,8 @@ class RollDialView @JvmOverloads constructor(
         // Needle
         rollDegrees?.let { degrees ->
             val rad = Math.toRadians(((degrees % 360f + 360f) % 360f - 90).toDouble())
-            val nx = cx + radius * 0.85f * cos(rad).toFloat()
-            val ny = cy + radius * 0.85f * sin(rad).toFloat()
+            val nx = cx + radius * 0.85f * kotlin.math.cos(rad).toFloat()
+            val ny = cy + radius * 0.85f * kotlin.math.sin(rad).toFloat()
             canvas.drawLine(cx, cy, nx, ny, needlePaint)
         }
 
@@ -95,6 +95,4 @@ class RollDialView @JvmOverloads constructor(
         canvas.drawText(valueText, cx, cy + radius + 72f, valuePaint)
     }
 
-    private fun cos(r: Double): Float = kotlin.math.cos(r).toFloat()
-    private fun sin(r: Double): Float = kotlin.math.sin(r).toFloat()
 }

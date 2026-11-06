@@ -30,7 +30,7 @@ object EvdevParser {
         if (trimmed.isEmpty()) return null
 
         // Expected: /dev/input/event8: 0003 0030 00000001
-        val parts = trimmed.split(limit = 4)
+        val parts = trimmed.split(" ", limit = 4)
         if (parts.size < 4) return null
 
         // parts[0] = "/dev/input/event8:"
